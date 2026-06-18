@@ -1,0 +1,37 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "Continuum Telemetry - SQS infrastructure"
+
+Resources:
+  TelemetryDeadLetterQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: continuum-telemetry-dlq
+      MessageRetentionPeriod: 1209600
+
+  TelemetryQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: continuum-telemetry-queue
+      VisibilityTimeout: 30
+      MessageRetentionPeriod: 345600
+      ReceiveMessageWaitTimeSeconds: 10
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt TelemetryDeadLetterQueue.Arn
+        maxReceiveCount: 5
+
+Outputs:
+  TelemetryQueueUrl:
+    Description: "URL of the main telemetry SQS queue"
+    Value: !Ref TelemetryQueue
+
+  TelemetryQueueArn:
+    Description: "ARN of the main telemetry SQS queue"
+    Value: !GetAtt TelemetryQueue.Arn
+
+  TelemetryDeadLetterQueueUrl:
+    Description: "URL of the dead-letter SQS queue"
+    Value: !Ref TelemetryDeadLetterQueue
+
+  TelemetryDeadLetterQueueArn:
+    Description: "ARN of the dead-letter SQS queue"
+    Value: !GetAtt TelemetryDeadLetterQueue.Arn

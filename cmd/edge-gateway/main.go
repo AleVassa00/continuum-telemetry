@@ -2,17 +2,18 @@ package main
 
 import (
 	"context"
-	"continuum-telemetry/internal/awsclient"
-	"continuum-telemetry/internal/config"
-	"continuum-telemetry/internal/edge"
-	"continuum-telemetry/internal/messaging"
-	"continuum-telemetry/internal/model"
 	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
 	"sync/atomic"
 	"time"
+
+	"continuum-telemetry/internal/awsclient"
+	"continuum-telemetry/internal/config"
+	"continuum-telemetry/internal/edge"
+	"continuum-telemetry/internal/messaging"
+	"continuum-telemetry/internal/model"
 )
 
 var receivedEvents uint64
