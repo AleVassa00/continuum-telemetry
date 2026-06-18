@@ -6,8 +6,9 @@ const (
 	modulus     int64 = 2147483647
 	multiplier  int64 = 48271
 	defaultSeed int64 = 123456789
-	streams           = 256
-	a256        int64 = 22925
+
+	streams       = 256
+	a256    int64 = 22925
 )
 
 type Rngs struct {

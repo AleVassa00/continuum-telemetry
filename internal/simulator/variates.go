@@ -1,8 +1,6 @@
 package simulator
 
-import (
-	"math"
-)
+import "math"
 
 type Variates struct {
 	rngs *Rngs

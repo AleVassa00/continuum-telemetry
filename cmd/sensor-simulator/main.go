@@ -36,7 +36,7 @@ func main() {
 	log.Printf("scenario=%s", cfg.Scenario)
 	log.Printf("sensor_count=%d", cfg.SensorCount)
 	log.Printf("event_rate_per_second=%d", cfg.EventRatePerSecond)
-	log.Printf("arrival_distribution=exponential")
+	log.Printf("arrival_distribution=%s", cfg.ArrivalDistribution)
 	log.Printf("random_seed=%d", cfg.RandomSeed)
 	log.Printf("outlier_probability=%.4f", cfg.OutlierProbability)
 	log.Printf("missing_probability=%.4f", cfg.MissingProbability)

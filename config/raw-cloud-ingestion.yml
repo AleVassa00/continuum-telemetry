@@ -1,0 +1,21 @@
+scenario: raw_cloud_ingestion
+
+sensor_simulator:
+  sensor_count: 100
+  event_rate_per_second: 50
+  arrival_distribution: exponential
+  random_seed: 123456789
+  outlier_probability: 0.05
+  missing_probability: 0.02
+
+edge_gateway:
+  host: edge-gateway
+  port: 8081
+  window_seconds: 5
+
+cloud_api:
+  port: 8080
+
+worker:
+  batch_size: 10
+  poll_interval_ms: 500

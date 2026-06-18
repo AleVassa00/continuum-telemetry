@@ -1,0 +1,24 @@
+scenario: edge_preprocessing
+
+sensor_simulator:
+  sensor_count: 10
+  event_rate_per_second: 5
+  arrival_distribution: exponential
+  random_seed: 123456789
+  outlier_probability: 0.05
+  missing_probability: 0.02
+
+edge_gateway:
+  host: localhost
+  port: 8081
+  window_seconds: 5
+
+messaging:
+  backend: log
+
+cloud_api:
+  port: 8080
+
+worker:
+  batch_size: 10
+  poll_interval_ms: 500
