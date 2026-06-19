@@ -10,3 +10,79 @@ services:
       - DEBUG=0
     volumes:
       - ./localstack/init:/etc/localstack/init/ready.d
+    healthcheck:
+      test: >
+        awslocal sqs get-queue-url --queue-name continuum-telemetry-queue >/dev/null 2>&1
+        &&
+        awslocal dynamodb describe-table --table-name TelemetryAggregates >/dev/null 2>&1
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  edge-gateway:
+    build:
+      context: ..
+      dockerfile: deployments/dockerfiles/edge-gateway.Dockerfile
+    image: continuum-edge-gateway:local
+    ports:
+      - "8081:8081"
+    environment:
+      APP_CONFIG: config/docker.yml
+      AWS_REGION: us-east-1
+      AWS_ENDPOINT_URL: http://localstack:4566
+      AWS_ACCESS_KEY_ID: test
+      AWS_SECRET_ACCESS_KEY: test
+      SQS_QUEUE_URL: http://localstack:4566/000000000000/continuum-telemetry-queue
+      DYNAMODB_TELEMETRY_TABLE: TelemetryAggregates
+      DYNAMODB_ALERTS_TABLE: Alerts
+    depends_on:
+      localstack:
+        condition: service_healthy
+
+  cloud-worker:
+    build:
+      context: ..
+      dockerfile: deployments/dockerfiles/cloud-worker.Dockerfile
+    image: continuum-cloud-worker:local
+    environment:
+      APP_CONFIG: config/docker.yml
+      AWS_REGION: us-east-1
+      AWS_ENDPOINT_URL: http://localstack:4566
+      AWS_ACCESS_KEY_ID: test
+      AWS_SECRET_ACCESS_KEY: test
+      SQS_QUEUE_URL: http://localstack:4566/000000000000/continuum-telemetry-queue
+      DYNAMODB_TELEMETRY_TABLE: TelemetryAggregates
+      DYNAMODB_ALERTS_TABLE: Alerts
+    depends_on:
+      localstack:
+        condition: service_healthy
+
+  cloud-api:
+    build:
+      context: ..
+      dockerfile: deployments/dockerfiles/cloud-api.Dockerfile
+    image: continuum-cloud-api:local
+    ports:
+      - "8080:8080"
+    environment:
+      APP_CONFIG: config/docker.yml
+      AWS_REGION: us-east-1
+      AWS_ENDPOINT_URL: http://localstack:4566
+      AWS_ACCESS_KEY_ID: test
+      AWS_SECRET_ACCESS_KEY: test
+      SQS_QUEUE_URL: http://localstack:4566/000000000000/continuum-telemetry-queue
+      DYNAMODB_TELEMETRY_TABLE: TelemetryAggregates
+      DYNAMODB_ALERTS_TABLE: Alerts
+    depends_on:
+      localstack:
+        condition: service_healthy
+
+  sensor-simulator:
+    build:
+      context: ..
+      dockerfile: deployments/dockerfiles/sensor-simulator.Dockerfile
+    image: continuum-sensor-simulator:local
+    environment:
+      APP_CONFIG: config/docker.yml
+    depends_on:
+      - edge-gateway

@@ -1,0 +1,8 @@
+.git
+.idea
+.env
+aws
+aws/
+awscliv2.zip
+*.log
+tmp
