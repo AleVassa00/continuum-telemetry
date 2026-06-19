@@ -11,6 +11,7 @@ import (
 
 type Config struct {
 	AWSRegion            string
+	AWSEndpointURL       string
 	SQSQueueURL          string
 	DynamoTelemetryTable string
 	DynamoAlertsTable    string
@@ -85,6 +86,7 @@ func Load() Config {
 func defaultConfig() Config {
 	return Config{
 		AWSRegion:            "us-east-1",
+		AWSEndpointURL:       "",
 		SQSQueueURL:          "",
 		DynamoTelemetryTable: "TelemetryAggregates",
 		DynamoAlertsTable:    "Alerts",
@@ -180,6 +182,7 @@ func applyYAMLConfig(cfg *Config, path string) error {
 
 func applyEnvOverrides(cfg *Config) {
 	cfg.AWSRegion = getEnv("AWS_REGION", cfg.AWSRegion)
+	cfg.AWSEndpointURL = getEnv("AWS_ENDPOINT_URL", cfg.AWSEndpointURL)
 	cfg.SQSQueueURL = getEnv("SQS_QUEUE_URL", cfg.SQSQueueURL)
 	cfg.DynamoTelemetryTable = getEnv("DYNAMODB_TELEMETRY_TABLE", cfg.DynamoTelemetryTable)
 	cfg.DynamoAlertsTable = getEnv("DYNAMODB_ALERTS_TABLE", cfg.DynamoAlertsTable)

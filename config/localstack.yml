@@ -13,11 +13,11 @@ edge_gateway:
   port: 8081
   window_seconds: 5
 
-cloud_api:
-  port: 8080
-
 messaging:
   backend: sqs
+
+cloud_api:
+  port: 8080
 
 worker:
   batch_size: 10

@@ -207,7 +207,7 @@ func buildPublisher(ctx context.Context, cfg config.Config) (messaging.Queue, er
 			return nil, fmt.Errorf("SQS_QUEUE_URL is required when messaging backend is sqs")
 		}
 
-		awsCfg, err := awsclient.LoadConfig(ctx, cfg.AWSRegion)
+		awsCfg, err := awsclient.LoadConfig(ctx, cfg.AWSRegion, cfg.AWSEndpointURL)
 		if err != nil {
 			return nil, err
 		}
