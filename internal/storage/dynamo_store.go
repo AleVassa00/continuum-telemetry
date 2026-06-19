@@ -3,6 +3,8 @@ package storage
 import (
 	"context"
 	"errors"
+	"sort"
+	"time"
 
 	"continuum-telemetry/internal/model"
 
@@ -14,6 +16,12 @@ import (
 
 type AggregateStore interface {
 	SaveAggregate(ctx context.Context, aggregate model.TelemetryAggregate) error
+}
+
+type AggregateReader interface {
+	CountAggregates(ctx context.Context) (int, error)
+	ListLatestAggregates(ctx context.Context, limit int) ([]model.TelemetryAggregate, error)
+	ListAggregatesBySensor(ctx context.Context, sensorID string, limit int) ([]model.TelemetryAggregate, error)
 }
 
 type DynamoStore struct {
@@ -43,13 +51,13 @@ type aggregateItem struct {
 	LocalAnomaly   bool    `dynamodbav:"local_anomaly"`
 }
 
-func (s *DynamoStore) SaveAggregate(ctx context.Context, aggregate model.TelemetryAggregate) error {
-	item := aggregateItem{
+func newAggregateItem(aggregate model.TelemetryAggregate) aggregateItem {
+	return aggregateItem{
 		EventID:        aggregate.EventID,
 		TraceID:        aggregate.TraceID,
 		SensorID:       aggregate.SensorID,
-		WindowStart:    aggregate.WindowStart.Format("2006-01-02T15:04:05.000000000Z07:00"),
-		WindowEnd:      aggregate.WindowEnd.Format("2006-01-02T15:04:05.000000000Z07:00"),
+		WindowStart:    aggregate.WindowStart.Format(time.RFC3339Nano),
+		WindowEnd:      aggregate.WindowEnd.Format(time.RFC3339Nano),
 		Scenario:       aggregate.Scenario,
 		AvgTemperature: aggregate.AvgTemperature,
 		MaxTemperature: aggregate.MaxTemperature,
@@ -58,6 +66,37 @@ func (s *DynamoStore) SaveAggregate(ctx context.Context, aggregate model.Telemet
 		EventCount:     aggregate.EventCount,
 		LocalAnomaly:   aggregate.LocalAnomaly,
 	}
+}
+
+func (item aggregateItem) toModel() (model.TelemetryAggregate, error) {
+	windowStart, err := time.Parse(time.RFC3339Nano, item.WindowStart)
+	if err != nil {
+		return model.TelemetryAggregate{}, err
+	}
+
+	windowEnd, err := time.Parse(time.RFC3339Nano, item.WindowEnd)
+	if err != nil {
+		return model.TelemetryAggregate{}, err
+	}
+
+	return model.TelemetryAggregate{
+		EventID:        item.EventID,
+		TraceID:        item.TraceID,
+		SensorID:       item.SensorID,
+		WindowStart:    windowStart,
+		WindowEnd:      windowEnd,
+		Scenario:       item.Scenario,
+		AvgTemperature: item.AvgTemperature,
+		MaxTemperature: item.MaxTemperature,
+		AvgVibration:   item.AvgVibration,
+		AvgPower:       item.AvgPower,
+		EventCount:     item.EventCount,
+		LocalAnomaly:   item.LocalAnomaly,
+	}, nil
+}
+
+func (s *DynamoStore) SaveAggregate(ctx context.Context, aggregate model.TelemetryAggregate) error {
+	item := newAggregateItem(aggregate)
 
 	av, err := attributevalue.MarshalMap(item)
 	if err != nil {
@@ -80,4 +119,94 @@ func (s *DynamoStore) SaveAggregate(ctx context.Context, aggregate model.Telemet
 	}
 
 	return nil
+}
+
+func (s *DynamoStore) CountAggregates(ctx context.Context) (int, error) {
+	output, err := s.client.Scan(ctx, &dynamodb.ScanInput{
+		TableName: aws.String(s.telemetryTable),
+		Select:    dynamodbtypes.SelectCount,
+	})
+	if err != nil {
+		return 0, err
+	}
+
+	return int(output.Count), nil
+}
+
+func (s *DynamoStore) ListLatestAggregates(ctx context.Context, limit int) ([]model.TelemetryAggregate, error) {
+	if limit <= 0 {
+		limit = 20
+	}
+
+	output, err := s.client.Scan(ctx, &dynamodb.ScanInput{
+		TableName: aws.String(s.telemetryTable),
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	var items []aggregateItem
+	if err := attributevalue.UnmarshalListOfMaps(output.Items, &items); err != nil {
+		return nil, err
+	}
+
+	aggregates, err := aggregateItemsToModels(items)
+	if err != nil {
+		return nil, err
+	}
+
+	sort.Slice(aggregates, func(i, j int) bool {
+		return aggregates[i].WindowStart.After(aggregates[j].WindowStart)
+	})
+
+	if len(aggregates) > limit {
+		aggregates = aggregates[:limit]
+	}
+
+	return aggregates, nil
+}
+
+func (s *DynamoStore) ListAggregatesBySensor(ctx context.Context, sensorID string, limit int) ([]model.TelemetryAggregate, error) {
+	if limit <= 0 {
+		limit = 20
+	}
+
+	output, err := s.client.Query(ctx, &dynamodb.QueryInput{
+		TableName:              aws.String(s.telemetryTable),
+		IndexName:              aws.String("sensor_id-window_start-index"),
+		KeyConditionExpression: aws.String("#sid = :sid"),
+		ExpressionAttributeNames: map[string]string{
+			"#sid": "sensor_id",
+		},
+		ExpressionAttributeValues: map[string]dynamodbtypes.AttributeValue{
+			":sid": &dynamodbtypes.AttributeValueMemberS{Value: sensorID},
+		},
+		ScanIndexForward: aws.Bool(false),
+		Limit:            aws.Int32(int32(limit)),
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	var items []aggregateItem
+	if err := attributevalue.UnmarshalListOfMaps(output.Items, &items); err != nil {
+		return nil, err
+	}
+
+	return aggregateItemsToModels(items)
+}
+
+func aggregateItemsToModels(items []aggregateItem) ([]model.TelemetryAggregate, error) {
+	aggregates := make([]model.TelemetryAggregate, 0, len(items))
+
+	for _, item := range items {
+		aggregate, err := item.toModel()
+		if err != nil {
+			return nil, err
+		}
+
+		aggregates = append(aggregates, aggregate)
+	}
+
+	return aggregates, nil
 }
